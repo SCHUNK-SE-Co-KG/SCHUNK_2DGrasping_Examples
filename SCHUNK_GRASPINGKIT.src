@@ -1,0 +1,161 @@
+&ACCESS RV
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\ExpertVorgabe
+DEF SCHUNK_GRASPINGKIT( )
+;FOLD INI 
+  ;FOLD BASISTECH INI   
+  BAS (#INITMOV,0 )
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+
+  ;ENDFOLD (USER INI)
+ ;ENDFOLD (INI)
+ 
+END
+
+;FOLD SCHUNK 2D Grasping Kit Methods
+;www.schunk.com/vision
+;Includes methods to use the TCP/IP connection of the 2D Grasping Kit and use its commands
+;This is not inteded to be 100% working code and more a template for your custom project
+;Made by: SCHUNK SE & Co. KG
+;Last Changes 26.06.2023
+;Keep in mind that this here needs a SCHUNK_2DGrasping.xml EthernetKRL configuration file
+;File has to be stored at Config/User/Common/EthernetKRL/SCHUNK_2DGrasping.xml
+;$Flag12 is used to show an incoming connection, change in xml file if needed
+;Tested with EthernetKRL 3.2.4
+;ENDFOLD (SCHUNK 2D Grasping Kit Methods)
+
+;Calling this function first is mandatory to establish a connection
+GLOBAL DEF SCHUNK_connect_SVC()
+   RET=EKI_Init("SCHUNK_2DGrasping")
+   RET=EKI_Open("SCHUNK_2DGrasping")
+END
+
+;Returns the highest supported comm version by the SCHUNK Vision Controller
+GLOBAL DEFFCT INT SCHUNK_getVersion_SVC()
+   INT version
+   
+   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,getVersionCode,baseBody)
+   RET = EKI_Send("SCHUNK_2DGrasping",Request[])
+   FOR i=1 TO 100
+       Response[i]=0
+   ENDFOR
+   WAIT FOR $FLAG[12]
+   RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
+   $FLAG[12]=FALSE
+   CAST_FROM(Response[],versionOFFSET,versionBuffer[])
+   CAST_FROM(versionBuffer[],OFFSET,version)
+   RETURN(version)
+ENDFCT
+
+;Requests the current state of the SCHUNK Vision Controller.
+;For state=/=2 you should probably code some exception handling as the device is not operational is that case
+GLOBAL DEFFCT INT SCHUNK_getState_SVC()
+   INT state
+   
+   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,getStateCode,baseBody)
+   RET = EKI_Send("SCHUNK_2DGrasping",Request[])
+   FOR i=1 TO 100
+       Response[i]=0
+   ENDFOR
+   WAIT FOR $FLAG[12]
+   RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
+   $FLAG[12]=FALSE
+   CAST_FROM(Response[],stateOFFSET,stateBuffer[])
+   CAST_FROM(stateBuffer[],OFFSET,state)
+   RETURN(state)
+ENDFCT
+
+;This lets the SCHUNK Vision Controller know that it is connected to a KUKA Robot
+;Calling this is the easiest way to check if your communication is working
+GLOBAL DEF SCHUNK_register_SVC()
+   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,registerClientCode,baseBody)
+   RET = EKI_Send("SCHUNK_2DGrasping",Request[])
+   FOR i=1 TO 100
+       Response[i]=0
+   ENDFOR
+   WAIT FOR $FLAG[12]
+   RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
+   $FLAG[12]=FALSE
+END
+
+;This function requests a grasp pose
+;Copy paste this or modify to fit your application
+GLOBAL DEF SCHUNK_getGrasp_SVC(objectID:IN, graspMode:IN)
+   ;Requests
+   INT objectID
+   INT graspMode
+   INT getGraspCode
+   ;Results
+   INT resultCode
+   INT objectClass
+   INT objectInstance
+   INT poseFormat
+   FRAME pose
+   REAL stroke
+   
+   ;Calculate the control bits needed to grasp the desired objects
+   ;Could also be done by hand e.g. A objectID of 7 and graspMode 3 would result into the following:
+   ; 'H03070001'
+   getGraspCode = objectID*objectMultipilier+graspMode*graspModeMultipiplier+getGraspBaseCode
+   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,getGraspCode,basePoseFormat)
+   RET = EKI_Send("SCHUNK_2DGrasping",Request[])
+   FOR i=1 TO 100
+       Response[i]=0
+   ENDFOR
+   WAIT FOR $FLAG[12]
+   RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
+   $FLAG[12]=FALSE
+   
+   ;Extract important variables from response - use them in your program
+   CAST_FROM(Response[],resultCodeOFFSET,resultCodeBuffer[])
+   CAST_FROM(poseFormatBuffer[],OFFSET,resultCode)
+   CAST_FROM(Response[],objectClassOFFSET,objectClassBuffer[])
+   CAST_FROM(poseFormatBuffer[],OFFSET,objectClass)
+   CAST_FROM(Response[],objectInstanceOFFSET,objectInstanceBuffer[])
+   CAST_FROM(poseFormatBuffer[],OFFSET,objectInstance)
+   CAST_FROM(Response[],poseFormatOFFSET,poseFormatBuffer[])
+   CAST_FROM(poseFormatBuffer[],OFFSET,poseFormat)
+   CAST_FROM(Response[],poseOFFSET,poseBuffer[])
+   CAST_FROM(poseFormatBuffer[],OFFSET,pose)
+   CAST_FROM(Response[],strokeOFFSET,strokeBuffer[])
+   CAST_FROM(poseFormatBuffer[],OFFSET,stroke)
+   ;Add your own code to move robot to graspPose and control gripper
+   ;Code to handle any errors should be done depending on your application
+   ;Stand clear of your robot and recheck if the bitconversion was done by your controller as expected
+END
+
+GLOBAL DEF SCHUNK_accGrasp_SVC(objectID: in)
+   ;Request
+   INT objectID
+   INT accGraspCode
+   ;Result
+   INT resultCode
+   INT objectInstace
+   
+   accGraspCode = objectID*accObjectMultiplier+accGraspBaseCode
+   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,accGraspCode,baseBody)
+   RET = EKI_Send("SCHUNK_2DGrasping",Request[])
+   FOR i=1 TO 100
+       Response[i]=0
+   ENDFOR
+   WAIT FOR $FLAG[12]
+   RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
+   $FLAG[12]=FALSE
+   CAST_FROM(Response[],accResultCodeOFFSET,accResultCodeBuffer[])
+   CAST_FROM(accResultCodeBuffer[],OFFSET,resultCode)
+   CAST_FROM(Response[],accObjectInstaceOFFSET,accObjectInstanceBuffer[])
+   CAST_FROM(accObjectInstanceBuffer[],OFFSET,objectInstace)
+   ;Use the resulting varibales in your code as you need them
+   ;most applications do not require this method
+END
+
+;Clear your communication and disconnect from the SCHUNK Vision Controller
+GLOBAL DEF SCHUNK_disconnect_SVC()
+   RET=EKI_Close("SCHUNK_2DGrasping")
+   RET=EKI_Clear("SCHUNK_2DGrasping")
+END
+
+
+

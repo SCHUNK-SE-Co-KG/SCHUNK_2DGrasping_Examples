@@ -1,0 +1,49 @@
+&ACCESS RV
+DEFDAT SCHUNK_GRASPINGKIT PUBLIC
+;www.schunk.com/vision
+CHAR answer
+   DECL INT baseVersion = 'H00000100' ;send on version 1
+   
+   DECL INT baseLength = 'H00000A00' ; we send fixed length and fill with 0
+      
+   DECl INT getVersionCode = 'H00000100'
+   DECL INT versionOFFSET = 10      ;Header has a size of 10 byte and is not relevat for reading a response
+   DECL CHAR versionBuffer[2] ;uint16
+   DECL INT getStateCode = 'H00000200'
+   DECL INT stateOFFSET = 10
+   DECL CHAR stateBuffer[1]   ; uint8
+   DECL INT registerClientCode = 'H00020300'
+   DECL INT getGraspBaseCode = 'H00000010'
+   DECL INT objectMultipilier = 'H00010000'
+   DECL INT graspModeMultipiplier = 'H01000000'
+   DECL INT resultCodeOFFSET = 10
+   DECL CHAR resultCodeBuffer[1] ;uint8
+   DECL INT objectClassOFFSET = 11
+   DECL CHAR objectClassBuffer[1] ;uint8
+   DECL INT objectInstanceOFFSET = 12
+   DECL CHAR objectInstanceBuffer[2] ;uint16
+   DECL INT poseFormatOFFSET = 14
+   DECL CHAR poseFormatBuffer[1] ;uint8
+   DECL INT poseOFFSET = 15
+   DECL CHAR poseBuffer[24] ;6*float32
+   DECL INT strokeOFFSET = 39
+   DECL CHAR strokeBuffer[4] ;float32
+   DECL INT centerOffsetOFFSET = 43
+   DECL CHAR centerOffsetBuffer[12] ;3*float32
+   DECL INT accGraspBaseCode = 'H00000101'
+   DECL INT accObjectMultiplier = 'H01000000'
+   DECL INT accResultCodeOFFSET = 10
+   DECL CHAR accResultCodeBuffer[1] ;uint8
+   DECL INT accObjectInstaceOFFSET = 11
+   DECL CHAR accObjectInstanceBuffer[2] ;uint16
+   
+   DECL INT baseBody = 'H00000000'
+   DECL INT basePoseFormat = 'H00000002'
+   
+   DECL INT sendOFFSET = 0
+   DECL EKI_STATUS RET
+   DECL CHAR Request[16]
+   DECL CHAR Response[100]
+   DECL INT i
+   DECL INT OFFSET = 0
+ENDDAT
