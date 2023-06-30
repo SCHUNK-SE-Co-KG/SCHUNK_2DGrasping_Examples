@@ -1,6 +1,7 @@
 &ACCESS RV
 DEFDAT SCHUNK_GRASPINGKIT PUBLIC
 ;www.schunk.com/vision
+;Keep KUKA Bit swap in mind. If SCHUNK device needs a 'H12345678' you would create a 'H78563412' in KUKA
 CHAR answer
    DECL INT baseVersion = 'H00000100' ;send on version 1
    
@@ -26,6 +27,18 @@ CHAR answer
    DECL CHAR poseFormatBuffer[1] ;uint8
    DECL INT poseOFFSET = 15
    DECL CHAR poseBuffer[24] ;6*float32
+   DECL INT poseXOFFSET = 15
+   DECL CHAR poseXBuffer = 4 ;float32
+   DECL INT poseYOFFSET = 19
+   DECL CHAR poseYBuffer = 4 ;float32
+   DECL INT poseZOFFSET = 23
+   DECL CHAR poseZBuffer = 4 ;float32
+   DECL INT poseRXOFFSET = 27
+   DECL CHAR poseRXBuffer = 4 ;float32
+   DECL INT poseRYOFFSET = 31
+   DECL CHAR poseRYBuffer = 4 ;float32
+   DECL INT poseRZOFFSET = 35
+   DECL CHAR poseRZBuffer = 4 ;float32
    DECL INT strokeOFFSET = 39
    DECL CHAR strokeBuffer[4] ;float32
    DECL INT centerOffsetOFFSET = 43

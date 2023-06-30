@@ -94,6 +94,13 @@ GLOBAL DEF SCHUNK_getGrasp_SVC(objectID:IN, graspMode:IN)
    INT poseFormat
    FRAME pose
    REAL stroke
+   FLOAT poseX
+   FLOAT poseY
+   FLOAT poseZ
+   ; Rotation is in rad
+   FLOAT poseRX
+   FLOAT poseRY
+   FLOAT poseRZ
    
    ;Calculate the control bits needed to grasp the desired objects
    ;Could also be done by hand e.g. A objectID of 7 and graspMode 3 would result into the following:
@@ -110,17 +117,29 @@ GLOBAL DEF SCHUNK_getGrasp_SVC(objectID:IN, graspMode:IN)
    
    ;Extract important variables from response - use them in your program
    CAST_FROM(Response[],resultCodeOFFSET,resultCodeBuffer[])
-   CAST_FROM(poseFormatBuffer[],OFFSET,resultCode)
+   CAST_FROM(resultCodeBuffer[],OFFSET,resultCode)
    CAST_FROM(Response[],objectClassOFFSET,objectClassBuffer[])
-   CAST_FROM(poseFormatBuffer[],OFFSET,objectClass)
+   CAST_FROM(objectClassBuffer[],OFFSET,objectClass)
    CAST_FROM(Response[],objectInstanceOFFSET,objectInstanceBuffer[])
-   CAST_FROM(poseFormatBuffer[],OFFSET,objectInstance)
+   CAST_FROM(objectInstanceBuffer[],OFFSET,objectInstance)
    CAST_FROM(Response[],poseFormatOFFSET,poseFormatBuffer[])
    CAST_FROM(poseFormatBuffer[],OFFSET,poseFormat)
-   CAST_FROM(Response[],poseOFFSET,poseBuffer[])
-   CAST_FROM(poseFormatBuffer[],OFFSET,pose)
+   CAST_FROM(Response[],poseXOFFSET,poseXBuffer[])
+   CAST_FROM(poseXBuffer[],OFFSET,poseX)
+   CAST_FROM(Response[],poseYOFFSET,poseYBuffer[])
+   CAST_FROM(poseYBuffer[],OFFSET,poseY)
+   CAST_FROM(Response[],poseZOFFSET,poseZBuffer[])
+   CAST_FROM(poseZBuffer[],OFFSET,poseZ)
+   CAST_FROM(Response[],poseRXOFFSET,poseRXBuffer[])
+   CAST_FROM(poseRXBuffer[],OFFSET,poseRX)
+   CAST_FROM(Response[],poseRYOFFSET,poseRYBuffer[])
+   CAST_FROM(poseRYBuffer[],OFFSET,poseRY)
+   CAST_FROM(Response[],poseRZOFFSET,poseRZBuffer[])
+   CAST_FROM(poseRZBuffer[],OFFSET,poseRZ)
+   ;CAST_FROM(Response[],poseOFFSET,poseBuffer[])
+   ;CAST_FROM(poseFormatBuffer[],OFFSET,pose)
    CAST_FROM(Response[],strokeOFFSET,strokeBuffer[])
-   CAST_FROM(poseFormatBuffer[],OFFSET,stroke)
+   CAST_FROM(strokeBuffer[],OFFSET,stroke)
    ;Add your own code to move robot to graspPose and control gripper
    ;Code to handle any errors should be done depending on your application
    ;Stand clear of your robot and recheck if the bitconversion was done by your controller as expected
