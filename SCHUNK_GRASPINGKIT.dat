@@ -1,62 +1,112 @@
-&ACCESS RV
-DEFDAT SCHUNK_GRASPINGKIT PUBLIC
+&ACCESS  RV
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\ExpertVorgabe
+&PARAM DISKPATH = KRC:\R1\Program\2DG
+&REL 3
+DEFDAT  SCHUNK_GRASPINGKIT PUBLIC
 ;www.schunk.com/vision
-;Keep KUKA Bit swap in mind. If SCHUNK device needs a 'H12345678' you would create a 'H78563412' in KUKA
-CHAR answer
-   DECL INT baseVersion = 'H00000100' ;send on version 1
-   
-   DECL INT baseLength = 'H00000A00' ; we send fixed length and fill with 0
-      
-   DECl INT getVersionCode = 'H00000100'
-   DECL INT versionOFFSET = 10      ;Header has a size of 10 byte and is not relevat for reading a response
-   DECL CHAR versionBuffer[2] ;uint16
-   DECL INT getStateCode = 'H00000200'
-   DECL INT stateOFFSET = 10
-   DECL CHAR stateBuffer[1]   ; uint8
-   DECL INT registerClientCode = 'H00020300'
-   DECL INT getGraspBaseCode = 'H00000010'
-   DECL INT objectMultipilier = 'H00010000'
-   DECL INT graspModeMultipiplier = 'H01000000'
-   DECL INT resultCodeOFFSET = 10
-   DECL CHAR resultCodeBuffer[1] ;uint8
-   DECL INT objectClassOFFSET = 11
-   DECL CHAR objectClassBuffer[1] ;uint8
-   DECL INT objectInstanceOFFSET = 12
-   DECL CHAR objectInstanceBuffer[2] ;uint16
-   DECL INT poseFormatOFFSET = 14
-   DECL CHAR poseFormatBuffer[1] ;uint8
-   DECL INT poseOFFSET = 15
-   DECL CHAR poseBuffer[24] ;6*float32
-   DECL INT poseXOFFSET = 15
-   DECL CHAR poseXBuffer = 4 ;float32
-   DECL INT poseYOFFSET = 19
-   DECL CHAR poseYBuffer = 4 ;float32
-   DECL INT poseZOFFSET = 23
-   DECL CHAR poseZBuffer = 4 ;float32
-   DECL INT poseRXOFFSET = 27
-   DECL CHAR poseRXBuffer = 4 ;float32
-   DECL INT poseRYOFFSET = 31
-   DECL CHAR poseRYBuffer = 4 ;float32
-   DECL INT poseRZOFFSET = 35
-   DECL CHAR poseRZBuffer = 4 ;float32
-   DECL INT strokeOFFSET = 39
-   DECL CHAR strokeBuffer[4] ;float32
-   DECL INT centerOffsetOFFSET = 43
-   DECL CHAR centerOffsetBuffer[12] ;3*float32
-   DECL INT accGraspBaseCode = 'H00000101'
-   DECL INT accObjectMultiplier = 'H01000000'
-   DECL INT accResultCodeOFFSET = 10
-   DECL CHAR accResultCodeBuffer[1] ;uint8
-   DECL INT accObjectInstaceOFFSET = 11
-   DECL CHAR accObjectInstanceBuffer[2] ;uint16
-   
-   DECL INT baseBody = 'H00000000'
-   DECL INT basePoseFormat = 'H00000002'
-   
-   DECL INT sendOFFSET = 0
-   DECL EKI_STATUS RET
-   DECL CHAR Request[16]
-   DECL CHAR Response[100]
-   DECL INT i
-   DECL INT OFFSET = 0
+;Keep KUKA Byte swap in mind. If SVC needs a 'H12345678' you would create a 'H78563412' in KUKA
+;-----------------------------------------------------------------------------------------
+;Prefix
+DECL CONST INT version=3
+DECL CHAR preVersionBuffer[1]
+DECL CHAR versionBuffer[2]
+DECL CONST INT length=74 ; we send fixed length of total 80. Header=6 so baseLength=80-6=74
+DECL CHAR lengthBuffer[4]
+
+;Header
+DECL CONST INT commType=1
+DECL CHAR commTypeBuffer[1]
+DECL CONST INT replyCode=0
+DECL CHAR replyCodeBuffer[1]
+DECL CONST INT replyCounter=0
+DECL CHAR replyCounterBuffer[1]
+;Header Message Types
+DECL INT msgType
+DECL CONST INT getVersionCode=1
+DECL CONST INT getStateCode=2
+DECL CONST INT registerClient=3
+DECL CONST INT setProject=4
+DECL CONST INT getGrasp=16
+DECL CONST INT graspFeedbackCode=17
+DECL CONST INT getObjectCount=32
+DECL CONST INT robotPose=48
+DECL CHAR msgTypeBuffer[1]
+
+;Request-Body
+DECL CONST INT client=2
+DECL CHAR clientBuffer[1]
+DECL INT graspMode ;Set in getGrasp request function
+DECL CHAR graspModeBuffer[1]
+DECL INT objectClass ;Set in getGrasp request function
+DECL CHAR objectClassBuffer[2]
+DECL INT tool=1 ;Only exterior two-finger parallel gripper is supported with V3
+DECL CHAR toolBuffer[1]
+DECL CONST INT poseFormat=17
+DECL CHAR poseFormatBuffer[1]
+DECL INT feedback ;Not yet supported with V3
+DECL CHAR graspFeedbackBuffer[1]
+DECL INT projectIndex ;Set in setProject request function
+DECL CHAR projectIndexBuffer[4]
+
+;Response Buffer - values will be stored in global config.dat variables
+DECL CHAR stateBuffer[1]
+DECL CHAR objectInstanceBuffer[2]
+DECL CHAR strokeBuffer[4]
+DECL CHAR angleOffsetBuffer[4]
+DECL CHAR centerOffsetXBuffer[4]
+DECL CHAR centerOffsetYBuffer[4]
+DECL CHAR centerOffsetZBuffer[4]
+DECL CHAR graspPoseXBuffer[4]
+DECL CHAR graspPoseYBuffer[4]
+DECL CHAR graspPoseZBuffer[4]
+DECL CHAR graspPoseABuffer[4]
+DECL CHAR graspPoseBBuffer[4]
+DECL CHAR graspPoseCBuffer[4]
+DECL CHAR objectCountBuffer[2]
+DECL CHAR candidateCountBuffer[4]
+;Paste the following into your config.dat
+;INT preVersionSCHUNK
+;INT lengthSCHUNK
+
+;INT commTypeSCHUNK
+;INT replyCodeSCHUNK
+;INT replyCounterSCHUNK
+;INT msgTypeSCHUNK
+
+;INT versionSCHUNK
+;INT stateSCHUNK
+
+;INT graspModeSCHUNK
+;INT objectClassSCHUNK
+;INT objectInstanceSCHUNK
+;INT strokeSCHUNK ;[micrometers] SCHUNK Grippers take this as Input
+;REAL angleOffsetSCHUNK ;[degrees]
+;REAL xCenterOffsetSCHUNK ;[millimeters]
+;REAL yCenterOffsetSCHUNK ;[millimeters]
+;REAL zCenteroffsetSCHUNK ;[millimeters]
+;INT toolSCHUNK
+;INT poseFormatSCHUNK
+
+;REAL poseXSCHUNK ;[millimeters]
+;REAL poseYSCHUNK ;[millimeters]
+;REAL poseZSCHUNK ;[millimeters]
+
+;REAL poseASCHUNK ;[degrees]
+;REAL poseBSCHUNK ;[degrees]
+;REAL poseCSCHUNK ;[degrees]
+
+;INT objectCountSCHUNK
+;INT candidateCountSCHUNK
+;----------------------------------------------------------------------------------------
+DECL EKI_STATUS RET
+DECL CONST INT EKI_FLAG=12 ;
+DECL CHAR Prefix[6]
+DECL CHAR Header[4]
+DECL CHAR Body[70]
+DECL CHAR Request[80]
+DECL CHAR Response[80]
+DECL INT i
+DECL INT OFFSET=0
+DECL CHAR intConverter[4]
 ENDDAT

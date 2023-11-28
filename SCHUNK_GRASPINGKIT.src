@@ -1,29 +1,83 @@
-&ACCESS RV
+&ACCESS RVP
+&REL 3
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\ExpertVorgabe
 DEF SCHUNK_GRASPINGKIT( )
-;FOLD INI 
-  ;FOLD BASISTECH INI   
-  BAS (#INITMOV,0 )
-  ;ENDFOLD (BASISTECH INI)
-  ;FOLD USER INI
-    ;Make your modifications here
-
-  ;ENDFOLD (USER INI)
- ;ENDFOLD (INI)
- 
+   INT v,s,c
+   ;FOLD INI 
+      ;FOLD BASISTECH INI   
+         BAS (#INITMOV,0 )
+      ;ENDFOLD (BASISTECH INI)
+      ;FOLD USER INI
+         ;Make your modifications here
+         
+      ;ENDFOLD (USER INI)
+      ;ENDFOLD (INI)   
+      
+   ;Example Program
+   ;Init SVC
+   SCHUNK_connect_SVC()
+   v=SCHUNK_getVersion_SVC()
+   ;If not v>=3 you need to update your device
+   s=SCHUNK_getState_SVC()
+   s=SCHUNK_getState_SVC()
+   ;Add error handling if not s==2, meaning SVC is not operational
+   SCHUNK_register_SVC()
+   ;Init Robot and gripper
+   ;Load the project that matches your application. Here project 14
+   SCHUNK_setProject_SVC(14)
+   ;Set grasp mode and object class according to your application
+   SCHUNK_getGrasp_SVC(3,0,1)
+   ;Different example with specified objectID=8 and graspMode=2
+   SCHUNK_getGrasp_SVC(2,8,1)
+   ;Check your edits in the $config.dat to see to which global variales the result was written
+   ;Add your own error handling is replyCodeSCHUNK is not 1 meaning no part was grasped
+   ;Activate your feeding system is candidateCountSCHUNK is too low
+   ;Send Grasp Feedback (no effect in V3)
+   SCHUNK_graspFeedback_SVC(1)
+   ;Get count of all objects without planning a grasp
+   c=SCHUNK_objectCount_SVC(0)
+   ;with specified ObjectID
+   c=SCHUNK_objectCount_SVC(8)
+   ;Send robot pose (no effect in V3
+   SCHUNK_robotCalib_SVC()
+   ;Disconnect once finished
+   SCHUNK_disconnect_SVC()  
+   
 END
 
 ;FOLD SCHUNK 2D Grasping Kit Methods
-;www.schunk.com/vision
-;Includes methods to use the TCP/IP connection of the 2D Grasping Kit and use its commands
-;This is not inteded to be 100% working code and more a template for your custom project
-;Made by: SCHUNK SE & Co. KG
-;Last Changes 26.06.2023
-;Keep in mind that this here needs a SCHUNK_2DGrasping.xml EthernetKRL configuration file
-;File has to be stored at Config/User/Common/EthernetKRL/SCHUNK_2DGrasping.xml
-;$Flag12 is used to show an incoming connection, change in xml file if needed
-;Tested with EthernetKRL 3.2.4
+   ;www.schunk.com/vision
+   ;Includes methods to use the TCP/IP connection of the 2D Grasping Kit and use its commands
+   ;This is not inteded to be 100% working code and more a template for your custom project
+   ;Provided by: SCHUNK SE & Co. KG
+   ;Author: Fabian Reinwald
+   ;Created: 24.07.2023
+   ;Last changed: 28.11.2023
+   ;Keep in mind that this here needs a SCHUNK_2DGrasping.xml EthernetKRL configuration file
+   ;<ETHERNETKRL>
+	;<CONFIGURATION>
+		;<EXTERNAL>
+			;<IP>172.31.1.76</IP>
+			;<PORT>42001</PORT>
+			;<TYPE>Server</TYPE>
+		;</EXTERNAL>
+	;</CONFIGURATION>
+	;<RECEIVE>
+		;<RAW>
+			;<ELEMENT Tag="SVCResponse" Type="BYTE" Set_Flag="12" SIZE="80" />			
+		;</RAW>
+	;</RECEIVE>
+	;<SEND>
+		;<RAW>
+			;<ELEMENT Tag="SVCRequest" TYPE="BYTE" Set_Flag="13" SIZE="80"/>
+		;</RAW>
+	;</SEND>
+   ;</ETHERNETKRL>
+   ;File has to be stored at Config/User/Common/EthernetKRL/SCHUNK_2DGrasping.xml
+   ;IP describes the IP adress that was set in the network settings of the SVC(SCHUNK Vision Controller)
+   ;$Flag12 is used to show an incoming connection, change in xml file if needed and EKI_FLAG in .dat
+   ;Tested with EthernetKRL 3.2.4
 ;ENDFOLD (SCHUNK 2D Grasping Kit Methods)
 
 ;Calling this function first is mandatory to establish a connection
@@ -34,140 +88,206 @@ END
 
 ;Returns the highest supported comm version by the SCHUNK Vision Controller
 GLOBAL DEFFCT INT SCHUNK_getVersion_SVC()
-   INT version
-   
-   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,getVersionCode,baseBody)
+   Prefix[]=SVC_prefix()
+   Header[]=SVC_header(getVersionCode)
+   Body[]=SVC_empty_body()
+   OFFSET=0
+   CAST_TO(Request[],OFFSET,Prefix[],Header[],Body[])
    RET = EKI_Send("SCHUNK_2DGrasping",Request[])
-   FOR i=1 TO 100
-       Response[i]=0
+   FOR i=1 TO 80
+      Response[i]=0
    ENDFOR
-   WAIT FOR $FLAG[12]
+   WAIT FOR $FLAG[EKI_FLAG]
    RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
-   $FLAG[12]=FALSE
-   CAST_FROM(Response[],versionOFFSET,versionBuffer[])
-   CAST_FROM(versionBuffer[],OFFSET,version)
-   RETURN(version)
+   $FLAG[EKI_FLAG]=FALSE
+   
+   OFFSET=10
+   CAST_FROM(Response[],OFFSET,versionBuffer[])
+   ;Buffers to variables
+   versionSCHUNK=uint16_to_int(versionBuffer[])
+   RETURN(versionSCHUNK)
 ENDFCT
 
 ;Requests the current state of the SCHUNK Vision Controller.
 ;For state=/=2 you should probably code some exception handling as the device is not operational is that case
 GLOBAL DEFFCT INT SCHUNK_getState_SVC()
-   INT state
-   
-   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,getStateCode,baseBody)
+   Prefix[]=SVC_prefix()
+   Header[]=SVC_header(getStateCode)
+   Body[]=SVC_empty_body()
+   OFFSET=0
+   CAST_TO(Request[],OFFSET,Prefix[],Header[],Body[])
    RET = EKI_Send("SCHUNK_2DGrasping",Request[])
-   FOR i=1 TO 100
-       Response[i]=0
+   FOR i=1 TO 80
+      Response[i]=0
    ENDFOR
-   WAIT FOR $FLAG[12]
+   WAIT FOR $FLAG[EKI_FLAG]
    RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
-   $FLAG[12]=FALSE
-   CAST_FROM(Response[],stateOFFSET,stateBuffer[])
-   CAST_FROM(stateBuffer[],OFFSET,state)
-   RETURN(state)
+   $FLAG[EKI_FLAG]=FALSE
+   
+   OFFSET=12
+   CAST_FROM(Response[],OFFSET,stateBuffer[])
+   stateSCHUNK=uint8_to_int(stateBuffer[])
+  
+   RETURN(stateSCHUNK)
 ENDFCT
 
 ;This lets the SCHUNK Vision Controller know that it is connected to a KUKA Robot
 ;Calling this is the easiest way to check if your communication is working
 GLOBAL DEF SCHUNK_register_SVC()
-   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,registerClientCode,baseBody)
+   Prefix[]=SVC_prefix()
+   Header[]=SVC_header(registerClient)
+   Body[]=SVC_register_client_body()
+   OFFSET=0
+   CAST_TO(Request[],OFFSET,Prefix[],Header[],Body[])
    RET = EKI_Send("SCHUNK_2DGrasping",Request[])
-   FOR i=1 TO 100
-       Response[i]=0
+   FOR i=1 TO 80
+      Response[i]=0
    ENDFOR
-   WAIT FOR $FLAG[12]
+   WAIT FOR $FLAG[EKI_FLAG]
    RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
-   $FLAG[12]=FALSE
+   $FLAG[EKI_FLAG]=FALSE
 END
 
-;This function requests a grasp pose
-;Copy paste this or modify to fit your application
-GLOBAL DEF SCHUNK_getGrasp_SVC(objectID:IN, graspMode:IN)
-   ;Requests
-   INT objectID
-   INT graspMode
-   INT getGraspCode
-   ;Results
-   INT resultCode
+;Activates a project. The regarding Index can be seen in the web frontend
+GLOBAL DEF SCHUNK_setProject_SVC(projectIndex:IN)
+   INT projectIndex
+   Prefix[]=SVC_prefix()
+   Header[]=SVC_header(setProject)
+   Body[]=SVC_set_project_body(projectIndex)
+   OFFSET=0
+   CAST_TO(Request[],OFFSET,Prefix[],Header[],Body[])
+   RET = EKI_Send("SCHUNK_2DGrasping",Request[])
+   FOR i=1 TO 80
+      Response[i]=0
+   ENDFOR
+   WAIT FOR $FLAG[EKI_FLAG]
+   RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
+   $FLAG[EKI_FLAG]=FALSE
+END
+
+;This function requests a grasp pose. It is recommended to check if replyCodeSCHUNK==1,else there is no grasp
+GLOBAL DEF SCHUNK_getGrasp_SVC(graspMode:IN, objectClass:IN,tool:IN)
+   INT graspMode,objectClass,tool
+   ;Force tool=1 for version 3
+   tool=1
+   
+   Prefix[]=SVC_prefix()
+   Header[]=SVC_header(getGrasp)
+   Body[]=SVC_get_grasp_body(graspMode, objectClass, tool)
+   OFFSET=0
+   CAST_TO(Request[],OFFSET,Prefix[],Header[],Body[])
+   RET = EKI_Send("SCHUNK_2DGrasping",Request[])
+   FOR i=1 TO 80
+      Response[i]=0
+   ENDFOR
+   WAIT FOR $FLAG[EKI_FLAG]
+   RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
+   $FLAG[EKI_FLAG]=FALSE
+   
+   OFFSET=0
+   ;CAST_FROM is limited to 10 variables at once
+   CAST_FROM(Response[],OFFSET,preVersionBuffer[],lengthBuffer[],commTypeBuffer[],replyCodeBuffer[],replyCounterBuffer[],msgTypeBuffer[],versionBuffer[],stateBuffer[],graspModeBuffer[],objectClassBuffer[])
+   OFFSET=16
+   CAST_FROM(Response[],OFFSET,objectInstanceBuffer[],strokeBuffer[],angleOffsetBuffer[],centerOffsetXBuffer[],centerOffsetYBuffer[],centerOffsetZBuffer[],toolBuffer[],poseFormatBuffer[])
+   OFFSET=40
+   CAST_FROM(Response[],OFFSET,graspPoseXBuffer[],graspPoseYBuffer[],graspPoseZBuffer[],graspPoseABuffer[],graspPoseBBuffer[],graspPoseCBuffer[])
+   OFFSET=68
+   CAST_FROM(Response[],OFFSET,objectCountBuffer[],candidateCountBuffer[])
+   ;Buffers to variables
+   preVersionSCHUNK=uint8_to_int(preVersionBuffer[])
+   lengthSCHUNK=uint32_to_int(lengthBuffer[])
+   commTypeSCHUNK=uint8_to_int(commTypeBuffer[])
+   replyCodeSCHUNK=uint8_to_int(replyCodeBuffer[])
+   replyCounterSCHUNK=uint8_to_int(replyCounterBuffer[])
+   msgTypeSCHUNK=uint8_to_int(msgTypeBuffer[])
+   graspModeSCHUNK=uint8_to_int(graspModeBuffer[])
+   objectClassSCHUNK=uint16_to_int(objectClassBuffer[])
+   objectInstanceSCHUNK=uint16_to_int(objectInstanceBuffer[])
+   strokeSCHUNK=uint32_to_int(strokeBuffer[])
+   angleOffsetSCHUNK=uint32_to_int(angleOffsetBuffer[])
+   angleOffsetSCHUNK=angleOffsetSCHUNK/1000000
+   xCenterOffsetSCHUNK=uint32_to_int(centerOffsetXBuffer[])
+   xCenterOffsetSCHUNK=xCenterOffsetSCHUNK/1000
+   yCenterOffsetSCHUNK=uint32_to_int(centerOffsetYBuffer[])
+   yCenterOffsetSCHUNK=yCenterOffsetSCHUNK/1000
+   zCenterOffsetSCHUNK=uint32_to_int(centerOffsetZBuffer[])
+   zCenterOffsetSCHUNK=zCenterOffsetSCHUNK/1000
+   toolSCHUNK=uint8_to_int(toolBuffer[])
+   poseFormatSCHUNK=uint8_to_int(poseFormatBuffer[])
+   poseXSCHUNK=uint32_to_int(graspPoseXBuffer[])
+   poseXSCHUNK=poseXSCHUNK/1000
+   poseYSCHUNK=uint32_to_int(graspPoseYBuffer[])
+   poseYSCHUNK=poseYSCHUNK/1000
+   poseZSCHUNK=uint32_to_int(graspPoseZBuffer[])
+   poseZSCHUNK=poseZSCHUNK/1000
+   poseASCHUNK=uint32_to_int(graspPoseABuffer[])
+   poseASCHUNK=poseASCHUNK/1000
+   poseBSCHUNK=uint32_to_int(graspPoseBBuffer[])
+   poseBSCHUNK=poseBSCHUNK/1000
+   poseCSCHUNK=uint32_to_int(graspPoseCBuffer[])
+   poseCSCHUNK=poseCSCHUNK/1000
+   objectCountSCHUNK=uint16_to_int(objectCountBuffer[])
+   candidateCountSCHUNK=uint16_to_int(candidateCountBuffer[])
+END
+
+;Function to report back to the SVC if a grasp was successfull. Has no effect on Version 3
+GLOBAL DEF SCHUNK_graspFeedback_SVC(graspFeedback: in)
+   INT graspFeedback
+   Prefix[]=SVC_prefix()
+   Header[]=SVC_header(graspFeedbackCode)
+   Body[]=SVC_grasp_feedback_body(graspFeedback)
+   OFFSET=0
+   CAST_TO(Request[],OFFSET,Prefix[],Header[],Body[])
+   RET = EKI_Send("SCHUNK_2DGrasping",Request[])
+   FOR i=1 TO 80
+      Response[i]=0
+   ENDFOR
+   WAIT FOR $FLAG[EKI_FLAG]
+   RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
+   $FLAG[EKI_FLAG]=FALSE
+END
+
+;Function to count detected objects in the scene. If objectClass=0 all classes are counted
+GLOBAL DEFFCT INT SCHUNK_objectCount_SVC(objectClass: in)
    INT objectClass
-   INT objectInstance
-   INT poseFormat
-   FRAME pose
-   REAL stroke
-   FLOAT poseX
-   FLOAT poseY
-   FLOAT poseZ
-   ; Rotation is in rad
-   FLOAT poseRX
-   FLOAT poseRY
-   FLOAT poseRZ
-   
-   ;Calculate the control bits needed to grasp the desired objects
-   ;Could also be done by hand e.g. A objectID of 7 and graspMode 3 would result into the following:
-   ; 'H03070001'
-   getGraspCode = objectID*objectMultipilier+graspMode*graspModeMultipiplier+getGraspBaseCode
-   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,getGraspCode,basePoseFormat)
+   Prefix[]=SVC_prefix()
+   Header[]=SVC_header(getObjectCount)
+   Body[]=SVC_object_count_body(objectClass)
+   OFFSET=0
+   CAST_TO(Request[],OFFSET,Prefix[],Header[],Body[])
    RET = EKI_Send("SCHUNK_2DGrasping",Request[])
-   FOR i=1 TO 100
-       Response[i]=0
+   FOR i=1 TO 80
+      Response[i]=0
    ENDFOR
-   WAIT FOR $FLAG[12]
+   WAIT FOR $FLAG[EKI_FLAG]
    RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
-   $FLAG[12]=FALSE
+   $FLAG[EKI_FLAG]=FALSE
    
-   ;Extract important variables from response - use them in your program
-   CAST_FROM(Response[],resultCodeOFFSET,resultCodeBuffer[])
-   CAST_FROM(resultCodeBuffer[],OFFSET,resultCode)
-   CAST_FROM(Response[],objectClassOFFSET,objectClassBuffer[])
-   CAST_FROM(objectClassBuffer[],OFFSET,objectClass)
-   CAST_FROM(Response[],objectInstanceOFFSET,objectInstanceBuffer[])
-   CAST_FROM(objectInstanceBuffer[],OFFSET,objectInstance)
-   CAST_FROM(Response[],poseFormatOFFSET,poseFormatBuffer[])
-   CAST_FROM(poseFormatBuffer[],OFFSET,poseFormat)
-   CAST_FROM(Response[],poseXOFFSET,poseXBuffer[])
-   CAST_FROM(poseXBuffer[],OFFSET,poseX)
-   CAST_FROM(Response[],poseYOFFSET,poseYBuffer[])
-   CAST_FROM(poseYBuffer[],OFFSET,poseY)
-   CAST_FROM(Response[],poseZOFFSET,poseZBuffer[])
-   CAST_FROM(poseZBuffer[],OFFSET,poseZ)
-   CAST_FROM(Response[],poseRXOFFSET,poseRXBuffer[])
-   CAST_FROM(poseRXBuffer[],OFFSET,poseRX)
-   CAST_FROM(Response[],poseRYOFFSET,poseRYBuffer[])
-   CAST_FROM(poseRYBuffer[],OFFSET,poseRY)
-   CAST_FROM(Response[],poseRZOFFSET,poseRZBuffer[])
-   CAST_FROM(poseRZBuffer[],OFFSET,poseRZ)
-   ;CAST_FROM(Response[],poseOFFSET,poseBuffer[])
-   ;CAST_FROM(poseFormatBuffer[],OFFSET,pose)
-   CAST_FROM(Response[],strokeOFFSET,strokeBuffer[])
-   CAST_FROM(strokeBuffer[],OFFSET,stroke)
-   ;Add your own code to move robot to graspPose and control gripper
-   ;Code to handle any errors should be done depending on your application
-   ;Stand clear of your robot and recheck if the bitconversion was done by your controller as expected
-END
+   OFFSET=14
+   CAST_FROM(Response[],OFFSET,objectClassBuffer[])
+   OFFSET=68
+   CAST_FROM(Response[],OFFSET,objectCountBuffer[])
+   objectClassSCHUNK=uint16_to_int(objectClassBuffer[])
+   objectCountSCHUNK=uint16_to_int(objectCountBuffer[])
+   
+   RETURN objectCountSCHUNK
+ENDFCT
 
-GLOBAL DEF SCHUNK_accGrasp_SVC(objectID: in)
-   ;Request
-   INT objectID
-   INT accGraspCode
-   ;Result
-   INT resultCode
-   INT objectInstace
-   
-   accGraspCode = objectID*accObjectMultiplier+accGraspBaseCode
-   CAST_TO(Request[],sendOFFSET,baseVersion,baseLength,accGraspCode,baseBody)
+;Function for future calibration method with board mounted to flange
+GLOBAL DEF SCHUNK_robotCalib_SVC()
+   Prefix[]=SVC_prefix()
+   Header[]=SVC_header(robotPose)
+   Body[]=SVC_robot_pose($POS_ACT.X,$POS_ACT.Y,$POS_ACT.Z,$POS_ACT.A*1000,$POS_ACT.B*1000,$POS_ACT.C*1000)
+   OFFSET=0
+   CAST_TO(Request[],OFFSET,Prefix[],Header[],Body[])
    RET = EKI_Send("SCHUNK_2DGrasping",Request[])
-   FOR i=1 TO 100
-       Response[i]=0
+   FOR i=1 TO 80
+      Response[i]=0
    ENDFOR
-   WAIT FOR $FLAG[12]
+   WAIT FOR $FLAG[EKI_FLAG]
    RET=EKI_GetString("SCHUNK_2DGrasping","SVCResponse",Response[])
-   $FLAG[12]=FALSE
-   CAST_FROM(Response[],accResultCodeOFFSET,accResultCodeBuffer[])
-   CAST_FROM(accResultCodeBuffer[],OFFSET,resultCode)
-   CAST_FROM(Response[],accObjectInstaceOFFSET,accObjectInstanceBuffer[])
-   CAST_FROM(accObjectInstanceBuffer[],OFFSET,objectInstace)
-   ;Use the resulting varibales in your code as you need them
-   ;most applications do not require this method
+   $FLAG[EKI_FLAG]=FALSE
+   
 END
 
 ;Clear your communication and disconnect from the SCHUNK Vision Controller
@@ -176,5 +296,180 @@ GLOBAL DEF SCHUNK_disconnect_SVC()
    RET=EKI_Clear("SCHUNK_2DGrasping")
 END
 
+;----------------------------HELPERS-------------------------------------------
+DEFFCT CHAR[6] SVC_prefix()
+   CHAR prefix[6], readVersionBuffer[4]
+   FOR i=1 TO 6
+      prefix[i]=0
+   ENDFOR
+   OFFSET=0
+   CAST_TO(readVersionBuffer[],OFFSET,version)
+   OFFSET=0
+   CAST_TO(lengthBuffer[],OFFSET,length)
+   OFFSET=0
+   CAST_TO(prefix[],OFFSET,readVersionBuffer[2],readVersionBuffer[1],lengthBuffer[4],lengthBuffer[3],lengthBuffer[2],lengthBuffer[1])
+   RETURN prefix[]
+ENDFCT
 
+DEFFCT CHAR[4] SVC_header(msgType:IN)
+   INT msgType
+   CHAR header[4],readCommTypeBuffer[4],readReplyCodeBuffer[4],readReplyCounterBuffer[4],readMsgTypeBuffer[4]
+   FOR i=1 TO 4
+      header[i]=0
+   ENDFOR
+   OFFSET=0
+   CAST_TO(readCommTypeBuffer[],OFFSET,commType)
+   OFFSET=0
+   CAST_TO(readReplyCodeBuffer[],OFFSET,replyCode)
+   OFFSET=0
+   CAST_TO(readReplyCounterBuffer[],OFFSET,replyCounter)
+   OFFSET=0
+   CAST_TO(readMsgTypeBuffer[],OFFSET,msgType)
+   OFFSET=0
+   CAST_TO(header[],OFFSET,readCommTypeBuffer[1],readReplyCodeBuffer[1],readReplyCounterBuffer[1],readMsgTypeBuffer[1])
+   RETURN header[]
+ENDFCT
 
+DEFFCT CHAR[70] SVC_empty_body()
+   CHAR body[70]
+   FOR i=1 TO 70
+      body[i]=0
+   ENDFOR
+   RETURN body[]
+ENDFCT
+
+DEFFCT CHAR[70] SVC_register_client_body()
+   CHAR body[70],readClientBuffer[4]
+   FOR i=1 TO 70
+      body[i]=0
+   ENDFOR
+   OFFSET=0
+   CAST_TO(readClientBuffer[],OFFSET,client)
+   OFFSET=0
+   CAST_TO(body[],OFFSET,readClientBuffer[1])
+   RETURN body[]
+ENDFCT
+
+DEFFCT CHAR[70] SVC_set_project_body(projectIndex:IN)
+   INT projectIndex
+   CHAR body[70]
+   FOR i=1 TO 70
+      body[i]=0
+   ENDFOR
+   OFFSET=0
+   CAST_TO(projectIndexBuffer[],OFFSET,projectIndex)
+   OFFSET=36
+   CAST_TO(body[],OFFSET,projectIndexBuffer[4],projectIndexBuffer[3],projectIndexBuffer[2],projectIndexBuffer[1])
+   RETURN body[]
+ENDFCT
+
+DEFFCT CHAR[70] SVC_get_grasp_body(graspMode:IN,objectClass:IN,tool:IN)
+   INT graspMode,objectClass,tool
+   CHAR body[70],readGraspModeBuffer[4],readObjectClassBuffer[4],readToolBuffer[4],readPoseFormatBuffer[4]
+   FOR i=1 TO 70
+      body[i]=0
+   ENDFOR
+   OFFSET=0
+   CAST_TO(readGraspModeBuffer[],OFFSET,graspMode)
+   OFFSET=0
+   CAST_TO(readObjectClassBuffer[],OFFSET,objectClass)
+   OFFSET=0
+   CAST_TO(readToolBuffer[],OFFSET,tool)
+   OFFSET=0
+   CAST_TO(readPoseFormatBuffer[],OFFSET,poseFormat)
+   OFFSET=1
+   CAST_TO(body[],OFFSET,readGraspModeBuffer[1],readObjectClassBuffer[2],readObjectClassBuffer[1],readToolBuffer[1],readPoseFormatBuffer[1])
+   RETURN body[]
+ENDFCT
+
+DEFFCT CHAR[70] SVC_grasp_feedback_body(feedback:IN)
+   INT feedback
+   CHAR body[70],readGraspFeedbackBuffer[4]
+   FOR i=1 TO 70
+      body[i]=0
+   ENDFOR
+   OFFSET=0
+   CAST_TO(readGraspFeedbackBuffer[],OFFSET,feedback)
+   OFFSET=6
+   CAST_TO(body[],OFFSET,readGraspFeedbackBuffer[1])
+   RETURN body[]
+ENDFCT
+
+DEFFCT CHAR[70] SVC_object_count_body(objectClass:IN)
+   INT objectClass
+   CHAR body[70], readObjectClassBuffer[4]
+   FOR i=1 TO 70
+      body[i]=0
+   ENDFOR
+   OFFSET=0
+   CAST_TO(readObjectClassBuffer[],OFFSET,objectClass)
+   OFFSET=2
+   CAST_TO(body[],OFFSET,readObjectClassBuffer[2],readObjectClassBuffer[1])
+   RETURN body[]
+ENDFCT
+
+DEFFCT CHAR[70] SVC_robot_pose(X:IN,Y:IN,Z:IN,A:IN,B:IN,C:IN)
+   CHAR body[70],readPoseFormatBuffer[4]
+   REAL X,Y,Z,A,B,C
+   CHAR Xchar[4],Ychar[4],Zchar[4],Achar[4],Bchar[4],Cchar[4]
+   FOR i=1 TO 70
+      body[i]=0
+   ENDFOR
+   OFFSET=0
+   CAST_TO(readPoseFormatBuffer[],OFFSET,poseFormat)
+   OFFSET=1
+   CAST_TO(body[],OFFSET,FALSE,FALSE,FALSE,FALSE,readPoseFormatBuffer[1])
+   Xchar[]=real_to_kilo_int_char(X)
+   Ychar[]=real_to_kilo_int_char(Y)
+   Zchar[]=real_to_kilo_int_char(Z)
+   Achar[]=real_to_kilo_int_char(A)
+   Bchar[]=real_to_kilo_int_char(B)
+   Cchar[]=real_to_kilo_int_char(C)
+   OFFSET=8
+   CAST_TO(body[],OFFSET,Xchar[],Ychar[],Zchar[],Achar[],Bchar[],Cchar[])
+   RETURN body[]
+ENDFCT
+
+;Takes a REAL as input (for example from $POS_ACT, converts it to array of int values
+;multiplies with 1000 for microunit and changes to Big-Endian
+DEFFCT CHAR[4] real_to_kilo_int_char(f:IN)
+   DECL REAL f
+   DECL INT i
+   DECL CHAR buf[4], resp[4]
+   OFFSET=0
+   f=f*1000
+   i=f
+   OFFSET=0
+   CAST_TO(buf[],OFFSET,i)
+   OFFSET=0
+   CAST_TO(resp[],OFFSET,buf[4],buf[3],buf[2],buf[1])
+   RETURN resp[]
+ENDFCT
+
+DEFFCT INT uint8_to_int(uint8Buffer[]:IN)
+   CHAR uint8Buffer[]
+   INT i
+   OFFSET=0
+   CAST_TO(intConverter[],OFFSET,uint8Buffer[1],FALSE,FALSE,FALSE)
+   OFFSET=0
+   CAST_FROM(intConverter[],OFFSET,i)
+   RETURN i
+ENDFCT
+DEFFCT INT uint16_to_int(uint16Buffer[]:IN)
+   CHAR uint16Buffer[]
+   INT i
+   OFFSET=0
+   CAST_TO(intConverter[],OFFSET,uint16Buffer[2],uint16Buffer[1],FALSE,FALSE)
+   OFFSET=0
+   CAST_FROM(intConverter[],OFFSET,i)
+   RETURN i
+ENDFCT
+DEFFCT INT uint32_to_int(uint32Buffer[]:IN)
+   CHAR uint32Buffer[]
+   INT i
+   OFFSET=0
+   CAST_TO(intConverter[],OFFSET,uint32Buffer[4],uint32Buffer[3],uint32Buffer[2],uint32Buffer[1])
+   OFFSET=0
+   CAST_FROM(intConverter[],OFFSET,i)
+   RETURN i
+ENDFCT

@@ -8,12 +8,12 @@
 	</CONFIGURATION>
 	<RECEIVE>
 		<RAW>
-			<ELEMENT Tag="SVCResponse" Type="BYTE" Set_Flag="12" SIZE="100" />			
+			<ELEMENT Tag="SVCResponse" Type="BYTE" Set_Flag="12" SIZE="80" />			
 		</RAW>
 	</RECEIVE>
 	<SEND>
 		<RAW>
-			<ELEMENT Tag="SVCRequest" TYPE="BYTE" Set_Flag="13" SIZE="16"/>
+			<ELEMENT Tag="SVCRequest" TYPE="BYTE" Set_Flag="13" SIZE="80"/>
 		</RAW>
 	</SEND>
 </ETHERNETKRL>
