@@ -1,7 +1,8 @@
-&ACCESS RVP
-&REL 3
+&ACCESS RVO2
+&REL 32
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\ExpertVorgabe
+&PARAM DISKPATH = KRC:\R1\Program\2DG
 DEF SCHUNK_GRASPINGKIT( )
    INT v,s,c
    ;FOLD INI 
@@ -53,7 +54,7 @@ END
    ;Provided by: SCHUNK SE & Co. KG
    ;Author: Fabian Reinwald
    ;Created: 24.07.2023
-   ;Last changed: 28.11.2023
+   ;Last changed: 06.05.2023
    ;Keep in mind that this here needs a SCHUNK_2DGrasping.xml EthernetKRL configuration file
    ;<ETHERNETKRL>
 	;<CONFIGURATION>
@@ -185,23 +186,34 @@ GLOBAL DEF SCHUNK_getGrasp_SVC(graspMode:IN, objectClass:IN,tool:IN)
    $FLAG[EKI_FLAG]=FALSE
    
    OFFSET=0
+
    ;CAST_FROM is limited to 10 variables at once
-   CAST_FROM(Response[],OFFSET,preVersionBuffer[],lengthBuffer[],commTypeBuffer[],replyCodeBuffer[],replyCounterBuffer[],msgTypeBuffer[],versionBuffer[],stateBuffer[],graspModeBuffer[],objectClassBuffer[])
+   CAST_FROM(Response[],OFFSET,preVersionBuffer[],lengthBuffer[],commTypeBuffer[],replyCodeBuffer[],replyCounterBuffer[],msgTypeBuffer[],graspModeBuffer[],objectClassBuffer[])
+
    OFFSET=16
+
    CAST_FROM(Response[],OFFSET,objectInstanceBuffer[],strokeBuffer[],angleOffsetBuffer[],centerOffsetXBuffer[],centerOffsetYBuffer[],centerOffsetZBuffer[],toolBuffer[],poseFormatBuffer[])
+
    OFFSET=40
+
    CAST_FROM(Response[],OFFSET,graspPoseXBuffer[],graspPoseYBuffer[],graspPoseZBuffer[],graspPoseABuffer[],graspPoseBBuffer[],graspPoseCBuffer[])
    OFFSET=68
    CAST_FROM(Response[],OFFSET,objectCountBuffer[],candidateCountBuffer[])
    ;Buffers to variables
-   preVersionSCHUNK=uint8_to_int(preVersionBuffer[])
+   ;preVersionSCHUNK=uint8_to_int(preVersionBuffer[])
+
+
+preVersionSCHUNK=uint16_to_int(preVersionBuffer[])
    lengthSCHUNK=uint32_to_int(lengthBuffer[])
    commTypeSCHUNK=uint8_to_int(commTypeBuffer[])
    replyCodeSCHUNK=uint8_to_int(replyCodeBuffer[])
    replyCounterSCHUNK=uint8_to_int(replyCounterBuffer[])
    msgTypeSCHUNK=uint8_to_int(msgTypeBuffer[])
-   graspModeSCHUNK=uint8_to_int(graspModeBuffer[])
+
+   ;graspModeSCHUNK=uint8_to_int(graspModeBuffer[])
+   graspModeSCHUNK=uint32_to_int(graspModeBuffer[])
    objectClassSCHUNK=uint16_to_int(objectClassBuffer[])
+
    objectInstanceSCHUNK=uint16_to_int(objectInstanceBuffer[])
    strokeSCHUNK=uint32_to_int(strokeBuffer[])
    angleOffsetSCHUNK=uint32_to_int(angleOffsetBuffer[])
@@ -221,11 +233,11 @@ GLOBAL DEF SCHUNK_getGrasp_SVC(graspMode:IN, objectClass:IN,tool:IN)
    poseZSCHUNK=uint32_to_int(graspPoseZBuffer[])
    poseZSCHUNK=poseZSCHUNK/1000
    poseASCHUNK=uint32_to_int(graspPoseABuffer[])
-   poseASCHUNK=poseASCHUNK/1000
+   poseASCHUNK=poseASCHUNK/1000000
    poseBSCHUNK=uint32_to_int(graspPoseBBuffer[])
-   poseBSCHUNK=poseBSCHUNK/1000
+   poseBSCHUNK=poseBSCHUNK/1000000
    poseCSCHUNK=uint32_to_int(graspPoseCBuffer[])
-   poseCSCHUNK=poseCSCHUNK/1000
+   poseCSCHUNK=poseCSCHUNK/1000000
    objectCountSCHUNK=uint16_to_int(objectCountBuffer[])
    candidateCountSCHUNK=uint16_to_int(candidateCountBuffer[])
 END

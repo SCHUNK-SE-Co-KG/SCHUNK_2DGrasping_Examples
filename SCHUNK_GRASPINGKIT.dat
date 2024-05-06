@@ -1,15 +1,15 @@
-&ACCESS  RV
+&ACCESS RVP2
+&REL 34
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\ExpertVorgabe
 &PARAM DISKPATH = KRC:\R1\Program\2DG
-&REL 3
 DEFDAT  SCHUNK_GRASPINGKIT PUBLIC
 ;www.schunk.com/vision
 ;Keep KUKA Byte swap in mind. If SVC needs a 'H12345678' you would create a 'H78563412' in KUKA
 ;-----------------------------------------------------------------------------------------
 ;Prefix
 DECL CONST INT version=3
-DECL CHAR preVersionBuffer[1]
+DECL CHAR preVersionBuffer[2]
 DECL CHAR versionBuffer[2]
 DECL CONST INT length=74 ; we send fixed length of total 80. Header=6 so baseLength=80-6=74
 DECL CHAR lengthBuffer[4]
@@ -37,7 +37,7 @@ DECL CHAR msgTypeBuffer[1]
 DECL CONST INT client=2
 DECL CHAR clientBuffer[1]
 DECL INT graspMode ;Set in getGrasp request function
-DECL CHAR graspModeBuffer[1]
+DECL CHAR graspModeBuffer[4]
 DECL INT objectClass ;Set in getGrasp request function
 DECL CHAR objectClassBuffer[2]
 DECL INT tool=1 ;Only exterior two-finger parallel gripper is supported with V3
@@ -100,13 +100,15 @@ DECL CHAR candidateCountBuffer[4]
 ;INT candidateCountSCHUNK
 ;----------------------------------------------------------------------------------------
 DECL EKI_STATUS RET
-DECL CONST INT EKI_FLAG=12 ;
+DECL CONST INT EKI_FLAG=12 ; 
 DECL CHAR Prefix[6]
 DECL CHAR Header[4]
 DECL CHAR Body[70]
 DECL CHAR Request[80]
 DECL CHAR Response[80]
 DECL INT i
-DECL INT OFFSET=0
+DECL INT OFFSET=80
+
+
 DECL CHAR intConverter[4]
 ENDDAT
