@@ -1,7 +1,5 @@
 # KUKA KRC
 
-For complete instructions read a word file.
-
 ## Quickstart
 - Make sure EthernetKRL is installed on robot
 - Connect SVC to XF5 Port of  robot controller and make sure IP adresses are in same subnet
