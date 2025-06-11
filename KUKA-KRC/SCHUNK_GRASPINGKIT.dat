@@ -1,5 +1,5 @@
-&ACCESS RVP2
-&REL 34
+&ACCESS RVO1
+&REL 49
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\ExpertVorgabe
 &PARAM DISKPATH = KRC:\R1\Program\2DG
@@ -8,12 +8,11 @@ DEFDAT  SCHUNK_GRASPINGKIT PUBLIC
 ;Keep KUKA Byte swap in mind. If SVC needs a 'H12345678' you would create a 'H78563412' in KUKA
 ;-----------------------------------------------------------------------------------------
 ;Prefix
-DECL CONST INT version=3
+DECL CONST INT version=4
 DECL CHAR preVersionBuffer[2]
 DECL CHAR versionBuffer[2]
 DECL CONST INT length=74 ; we send fixed length of total 80. Header=6 so baseLength=80-6=74
 DECL CHAR lengthBuffer[4]
-
 ;Header
 DECL CONST INT commType=1
 DECL CHAR commTypeBuffer[1]
@@ -27,75 +26,85 @@ DECL CONST INT getVersionCode=1
 DECL CONST INT getStateCode=2
 DECL CONST INT registerClient=3
 DECL CONST INT setProject=4
+DECL CONST INT setTool=5
+DECL CONST INT setWorkspace=6
 DECL CONST INT getGrasp=16
 DECL CONST INT graspFeedbackCode=17
 DECL CONST INT getObjectCount=32
 DECL CONST INT robotPose=48
 DECL CHAR msgTypeBuffer[1]
-
 ;Request-Body
-DECL CONST INT client=2
-DECL CHAR clientBuffer[1]
+DECL CONST INT client=2 ;Set in registerClient request function
 DECL INT graspMode ;Set in getGrasp request function
 DECL CHAR graspModeBuffer[4]
-DECL INT objectClass ;Set in getGrasp request function
-DECL CHAR objectClassBuffer[2]
-DECL INT tool=1 ;Only exterior two-finger parallel gripper is supported with V3
-DECL CHAR toolBuffer[1]
+DECL INT objectID ;Set in getGrasp request function
+DECL CHAR objectIDBuffer[4]
+DECL INT selCriterion ;Set in getGrasp request function
 DECL CONST INT poseFormat=17
 DECL CHAR poseFormatBuffer[1]
-DECL INT feedback ;Not yet supported with V3
-DECL CHAR graspFeedbackBuffer[1]
-DECL INT projectIndex ;Set in setProject request function
-DECL CHAR projectIndexBuffer[4]
-
+DECL INT feedback ;Not yet supported with V4
+DECL INT projectID ;Set in setProject request function
+DECL CHAR projectIDBuffer[4]
+DECL INT toolID ;Set in setTool request function
+DECL CHAR toolIDBuffer[4]
+DECL INT workspaceID ;Set in setWorkspace request function
+DECL CHAR workspaceIDBuffer[4]
 ;Response Buffer - values will be stored in global config.dat variables
 DECL CHAR stateBuffer[1]
 DECL CHAR objectInstanceBuffer[2]
+DECL CHAR referenceFrameBuffer[1]
 DECL CHAR strokeBuffer[4]
-DECL CHAR angleOffsetBuffer[4]
+DECL CHAR objectOffsetXBuffer[4]
+DECL CHAR objectOffsetYBuffer[4]
+DECL CHAR objectOffsetRZBuffer[4]
 DECL CHAR centerOffsetXBuffer[4]
 DECL CHAR centerOffsetYBuffer[4]
-DECL CHAR centerOffsetZBuffer[4]
 DECL CHAR graspPoseXBuffer[4]
 DECL CHAR graspPoseYBuffer[4]
 DECL CHAR graspPoseZBuffer[4]
 DECL CHAR graspPoseABuffer[4]
 DECL CHAR graspPoseBBuffer[4]
 DECL CHAR graspPoseCBuffer[4]
+DECL CHAR candidateCountBuffer[2]
 DECL CHAR objectCountBuffer[2]
-DECL CHAR candidateCountBuffer[4]
 ;Paste the following into your config.dat
+;====================================
+; Userdefined Variables for SCHUNK 2DGK
+;====================================
 ;INT preVersionSCHUNK
 ;INT lengthSCHUNK
-
+; 
 ;INT commTypeSCHUNK
 ;INT replyCodeSCHUNK
 ;INT replyCounterSCHUNK
 ;INT msgTypeSCHUNK
-
+; 
 ;INT versionSCHUNK
 ;INT stateSCHUNK
-
+; 
 ;INT graspModeSCHUNK
-;INT objectClassSCHUNK
+;INT objectIDSCHUNK
 ;INT objectInstanceSCHUNK
-;INT strokeSCHUNK ;[micrometers] SCHUNK Grippers take this as Input
-;REAL angleOffsetSCHUNK ;[degrees]
-;REAL xCenterOffsetSCHUNK ;[millimeters]
-;REAL yCenterOffsetSCHUNK ;[millimeters]
-;REAL zCenteroffsetSCHUNK ;[millimeters]
+;INT strokeSCHUNK;[micrometers] SCHUNK Grippers take this as Input
+;REAL angleOffsetSCHUNK;[degrees]
+;REAL xCenterOffsetSCHUNK;[millimeters]
+;REAL yCenterOffsetSCHUNK;[millimeters]
+;REAL zCenteroffsetSCHUNK;[millimeters]
 ;INT toolSCHUNK
 ;INT poseFormatSCHUNK
-
-;REAL poseXSCHUNK ;[millimeters]
-;REAL poseYSCHUNK ;[millimeters]
-;REAL poseZSCHUNK ;[millimeters]
-
-;REAL poseASCHUNK ;[degrees]
-;REAL poseBSCHUNK ;[degrees]
-;REAL poseCSCHUNK ;[degrees]
-
+;INT referenceFrameSCHUNK
+;INT objectOffsetXSCHUNK
+;INT objectOffsetYSCHUNK
+;INT objectOffsetRZSCHUNK
+; 
+;REAL poseXSCHUNK;[millimeters]
+;REAL poseYSCHUNK;[millimeters]
+;REAL poseZSCHUNK;[millimeters]
+; 
+;REAL poseASCHUNK;[degrees]
+;REAL poseBSCHUNK;[degrees]
+;REAL poseCSCHUNK;[degrees]
+; 
 ;INT objectCountSCHUNK
 ;INT candidateCountSCHUNK
 ;----------------------------------------------------------------------------------------
@@ -107,8 +116,7 @@ DECL CHAR Body[70]
 DECL CHAR Request[80]
 DECL CHAR Response[80]
 DECL INT i
-DECL INT OFFSET=80
-
+DECL INT OFFSET=4
 
 DECL CHAR intConverter[4]
 ENDDAT

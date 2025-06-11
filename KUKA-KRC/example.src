@@ -1,0 +1,241 @@
+&ACCESS RVP
+&REL 350
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\ExpertVorgabe
+&PARAM DISKPATH = KRC:\R1\Program\GraspExampleV4
+DEF exampleSVC_V4( )
+
+;-----------------EXAMPLE FILE FOR A SIMPLE GRASPING APPLICATION-----------------
+;-----------------FOR EDUCATIONAL PURPOSES ONLY-----------------
+;-----------------DO NOT USE IN PRODUCTION ENVIRONMENT-----------------
+;-----------------DO NOT RUN THIS FILE DIRECTLY-----------------
+
+DECL INT state
+
+;Connect Robot to SCHUNK GraspingKit
+SCHUNK_connect_SVC()
+SCHUNK_register_SVC()
+;Writing the version and state of the SCHUNK GraspingKit to global variables to check if they are as expected
+versionSCHUNK=SCHUNK_getVersion_SVC()
+stateSCHUNK=SCHUNK_getState_SVC()
+
+;Move to Home Position
+;FOLD PTP v4home Vel=75 % PDAT7 Tool[5]:Tool5 Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=v4home; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT7; Kuka.VelocityPtp=75; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT7
+FDAT_ACT = Fv4home
+BAS(#PTP_PARAMS, 75.0)
+SET_CD_PARAMS (0)
+PTP Xv4home
+;ENDFOLD
+
+;----------------------Activate Project, Tool and Workspace----------------------
+;----------------------Values depend on the IDs you have set in the SCHUNK GraspingKit----------------------
+SCHUNK_setProject_SVC(164)
+SCHUNK_setTool_SVC(32)
+SCHUNK_setWorkspace_SVC(0)
+LOOP
+
+;----------------------Gripper Init----------------------
+;----------------------This uses Signals mapped to a Profinet EGK----------------------
+MoveToAbsolutePos_13S    = FALSE
+GripWorkpiece_12S        = FALSE
+Acknowledge_2S           = FALSE 
+FastStop_0S              = FALSE
+;Tool
+$TOOL=TOOL_DATA[2]
+$ACT_TOOL=2
+;----------------------Open gripper----------------------
+FastStop_0S              = TRUE
+WAIT SEC 1.0
+   while readyforoperation_0S == FALSE
+   Acknowledge_2S           = true
+   WAIT SEC 1.0
+   Acknowledge_2S           = FALSE  
+   ENDWHILE
+SetPositionS        = 10000
+SetSpeedS           = 60000
+WAIT SEC 0.1
+MoveToAbsolutePos_13S    = TRUE
+;FOLD WAIT Time= 0.5 sec ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.logics.wait; Time=0.5
+;ENDFOLD
+WAIT SEC 0.5
+;ENDFOLD
+WAIT FOR  ( positionreached_13S )
+MoveToAbsolutePos_13S    = FALSE
+;HomePos
+
+;----------------------Move Robot into Position to take an image----------------------
+;----------------------Here the camera is mounted to the robot flange----------------------
+;----------------------This position is used as origin for the Base we will use to move to the grasp position----------------------
+;FOLD SPTP v4home Vel=75 % PDAT8 Tool[5]:Tool5 Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=v4home; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT8; Kuka.VelocityPtp=75; Kuka.VelocityFieldEnabled=True; Kuka.ColDetectFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SPTP
+;ENDFOLD
+SPTP Xv4home WITH $VEL_AXIS[1] = SVEL_JOINT(75.0), $TOOL = STOOL2(Fv4home), $BASE = SBASE(Fv4home.BASE_NO), $IPO_MODE = SIPO_MODE(Fv4home.IPO_FRAME), $LOAD = SLOAD(Fv4home.TOOL_NO), $ACC_AXIS[1] = SACC_JOINT(PPDAT8), $APO = SAPO_PTP(PPDAT8), $GEAR_JERK[1] = SGEAR_JERK(PPDAT8), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+;ENDFOLD
+state=SCHUNK_getState_SVC()
+
+;----------------------Request grasping pose----------------------
+;----------------------Loop until a valid grasp pose is received----------------------
+;----------------------An else condition could actuate a material feed or similar----------------------
+SCHUNK_getGrasp_SVC(1,1,3)
+IF (replyCodeSCHUNK == 1) THEN
+   
+   ;----------------------Move gripper jaws to the grasp stroke----------------------
+   while readyforoperation_0S == false
+   Acknowledge_2S           = true
+   WAIT SEC 0.5
+   Acknowledge_2S           = false  
+   ENDWHILE
+   WAIT SEC 0.5
+   SetPositionS =(strokeSCHUNK+500)
+   SetSpeedS           = 60000
+      WAIT SEC 0.5
+   MoveToAbsolutePos_13S    = TRUE
+      WAIT SEC 2.0
+   WAIT FOR  ( positionreached_13S )
+   MoveToAbsolutePos_13S    = FALSE
+
+
+   ;----------------------Move slightly over the grasp pose----------------------
+   ;;FOLD PTP XV4preTarget Vel=100 % PDAT12 Tool[2]:egkschenk Base[1]:camhome ;%{PE}
+   ;;FOLD Parameters ;%{h}
+   ;;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=XV4preTarget; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT12; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+   ;;ENDFOLD
+   ;$BWDSTART = FALSE
+   ;PDAT_ACT = PPDAT12
+   ;FDAT_ACT = FXV4preTarget
+   ;BAS(#PTP_PARAMS, 100.0)
+   ;SET_CD_PARAMS (0)
+   ;PTP XXV4preTarget
+   ;;ENDFOLD
+   ;----------------------Write global result variables into position variable----------------------
+   XXV4Target.x=poseXSCHUNK;
+   XXV4Target.y=poseYSCHUNK;
+   XXV4Target.z=poseZSCHUNK-40;
+   XXV4Target.a=poseASCHUNK;
+   XXV4Target.b=poseBSCHUNK;
+   XXV4Target.c=poseCSCHUNK;
+   ;----------------------Make sure to move in the correct tool and base----------------------
+   ;----------------------LIN Movement avoids the robot not finding a path due to incorrect turns----------------------
+;FOLD LIN XV4Target Vel=1 m/s CPDAT4 Tool[5]:Tool5 Base[4]:flexi ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=XV4Target; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT4; Kuka.VelocityPath=1; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=LIN
+;ENDFOLD
+$BWDSTART = FALSE
+LDAT_ACT = LCPDAT4
+FDAT_ACT = FXV4Target
+BAS(#CP_PARAMS, 1.0)
+SET_CD_PARAMS (0)
+LIN XXV4Target
+;ENDFOLD
+
+;----------------------Move to the grasp pose----------------------
+;----------------------Height set in UI is upper plane of workpiece so offset Z a bit deeper depending on your fingers----------------------
+   XXV4Target.x=poseXSCHUNK;
+   XXV4Target.y=poseYSCHUNK;
+   XXV4Target.z=poseZSCHUNK+9;
+   XXV4Target.a=poseASCHUNK;
+   XXV4Target.b=poseBSCHUNK;
+   XXV4Target.c=poseCSCHUNK;
+;FOLD LIN XV4Target Vel=0.2 m/s CPDAT1 Tool[5]:Tool5 Base[4]:flexi ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=XV4Target; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT1; Kuka.VelocityPath=0.2; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=LIN
+;ENDFOLD
+$BWDSTART = FALSE
+LDAT_ACT = LCPDAT1
+FDAT_ACT = FXV4Target
+BAS(#CP_PARAMS, 0.2)
+SET_CD_PARAMS (0)
+LIN XXV4Target
+;ENDFOLD
+
+    ;----------------------Close the gripper----------------------
+      while readyforoperation_0S == false
+      Acknowledge_2S           = true
+      WAIT SEC 1.0
+      Acknowledge_2S           = false  
+      ENDWHILE
+   SetSpeedS           = 0  ;3mm/s
+   GrippingForceS           = 50     ;50% Gripping force
+   GripDirection_7S = TRUE
+   GripWorkpiece_12S        = TRUE
+   ;FOLD WAIT Time= 1.0 sec ;%{PE}
+   ;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.logics.wait; Time=1.0
+   ;ENDFOLD
+   WAIT SEC 1.0
+   ;ENDFOLD
+   WAIT FOR  ( workpiecegripped_12S or noworkpiecedetected_11S )
+   GripWorkpiece_12S        = False
+
+;----------------------Position to move away after grasp----------------------
+   XXV4Target.x=poseXSCHUNK;
+   XXV4Target.y=poseYSCHUNK;
+   XXV4Target.z=poseZSCHUNK-100;
+   XXV4Target.a=poseASCHUNK;
+   XXV4Target.b=poseBSCHUNK;
+   XXV4Target.c=poseCSCHUNK;
+;----------------------LIN Move up----------------------
+;FOLD LIN XV4Target Vel=0.5 m/s CPDAT5 Tool[5]:Tool5 Base[4]:flexi ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=XV4Target; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT5; Kuka.VelocityPath=0.5; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=LIN
+;ENDFOLD
+$BWDSTART = FALSE
+LDAT_ACT = LCPDAT5
+FDAT_ACT = FXV4Target
+BAS(#CP_PARAMS, 0.5)
+SET_CD_PARAMS (0)
+LIN XXV4Target
+;ENDFOLD
+;----------------------PTP to drop off position----------------------
+;FOLD PTP P10 Vel=75 % PDAT4 Tool[5]:Tool5 Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P10; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT4; Kuka.VelocityPtp=75; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT4
+FDAT_ACT = FP10
+BAS(#PTP_PARAMS, 75.0)
+SET_CD_PARAMS (0)
+PTP XP10
+;ENDFOLD
+
+;----------------------Open gripper again----------------------
+   WAIT SEC 1.0
+      while readyforoperation_0S == false
+      Acknowledge_2S           = true
+      WAIT SEC 1.0
+      Acknowledge_2S           = false  
+      ENDWHILE
+   SetPositionS        = 1000
+   SetSpeedS           = 60000  ;30mm/s
+   MoveToAbsolutePos_13S    = TRUE
+
+   WAIT SEC 1.0
+   WAIT FOR  ( positionreached_13S )
+   MoveToAbsolutePos_13S    = FALSE
+
+;----------------------Clear from drop off----------------------
+;FOLD LIN P8 Vel=1 m/s CPDAT2 Tool[5]:Tool5 Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P8; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT2; Kuka.VelocityPath=1; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=LIN
+;ENDFOLD
+$BWDSTART = FALSE
+LDAT_ACT = LCPDAT2
+FDAT_ACT = FP8
+BAS(#CP_PARAMS, 1.0)
+SET_CD_PARAMS (0)
+LIN XP8
+;ENDFOLD
+ENDIF   
+
+ENDLOOP
+
+END
